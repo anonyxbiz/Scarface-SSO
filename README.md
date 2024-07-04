@@ -16,16 +16,19 @@ Scarface SSO (Single Sign-On) Web App is a web app designed for user authenticat
 - Python 3.7+
 - Dependencies listed in `requirements.txt`
 - Environment variables:
+  - `safe_key`: Fernet key
   - `mailjet_api_key`: API key for Mailjet integration.
   - `mailjet_secret_key`: Secret key for Mailjet integration.
-  - `app_url`: URL of the application for verification purposes.
+  - `mailjet_mail`: Mailjet sender email.
+  - `mailjet_name`: Mailjet sender name.
+  - `app_url`: Base URL of the application.
 
 ## Installation
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/scarface-sso-webapp.git
-   cd scarface-sso-webapp
+   git clone https://github.com/anonyxbiz/Scarface-SSO.git
+   cd Scarface-SSO
    ```
 
 2. Install dependencies:
@@ -54,12 +57,10 @@ Scarface SSO (Single Sign-On) Web App is a web app designed for user authenticat
 - Update `middleware.allowed_hosts` in `app.py` to include your deployment hosts.
 - Customize email templates and verification URLs in `Verification.two_step_verification`.
 
-## Contributing
-
-Contributions are welcome! Fork the repository and submit a pull request with your enhancements.
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-**Note**: This project is a hobbyist project and is not intended for production use.
+## Note from the Developer
+
+It was fun making this project and it was solely meant for fun.
