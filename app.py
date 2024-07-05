@@ -390,7 +390,6 @@ async def access_user_data():
         return response
 
 if __name__ == '__main__':
-    # app.run(host="0.0.0.0", port=int(middleware.allowed_hosts[0].split(":")[1]), debug=False)
     config = Config()
     config.bind = [f"0.0.0.0:{int(middleware.allowed_hosts[0].split(":")[1])}"]
     run(serve(app, config))
