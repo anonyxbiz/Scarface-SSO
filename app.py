@@ -1,5 +1,5 @@
 # SSO auth management
-from Scarface_core import scar, frontend, elements, manage, safe, dt, logger
+from Scarface import scar, frontend, elements, manage, safe, dt, logger
 from re import search
 from httpx import AsyncClient
 from random import randint
