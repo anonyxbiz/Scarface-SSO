@@ -1,4 +1,5 @@
-from quart import Quart, request, jsonify, send_file, make_response, Response, redirect
+import quart as scar
+Quart, request, jsonify, send_file, make_response, Response, redirect = scar.Quart, scar.request, scar.jsonify, scar.send_file, scar.make_response, scar.Response, scar.redirect
 from asyncio import run as asyncrun
 from os.path import exists
 from datetime import datetime as dt

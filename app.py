@@ -1,5 +1,5 @@
 # SSO auth management
-from Scarface_core import jsonify, frontend, elements, request, manage, safe, redirect, dt, make_response, logger
+from Scarface_core import scar, frontend, elements, manage, safe, dt, logger
 from re import search
 from httpx import AsyncClient
 from random import randint
@@ -15,8 +15,6 @@ frontend.register_routes()
 
 middleware.protected_routes = ["/app/"]
 middleware.allowed_hosts = ["127.0.0.1:8001","localhost:8001", "ngrok-free.app"]
-
-p = print
 
 class Verification:
     def __init__(app) -> None:
@@ -163,14 +161,14 @@ class Auth:
     async def two_step_verify(app):
         try:
             login = await manage.login(app.data['email'])
-            if not login[0]: return jsonify(login[1]), 403
+            if not login[0]: return scar.jsonify(login[1]), 403
 
             get_user_data = await manage.auth_session(login[1]['detail']['auth_key'])
 
-            if not get_user_data[0]: return jsonify(get_user_data[1]), 403
+            if not get_user_data[0]: return scar.jsonify(get_user_data[1]), 403
 
             if await safe.tool((get_user_data[1]['user_data']['email'],)) != app.data['email']:
-                return jsonify({'detail': 'Invalid email and or password combination'}), 403
+                return scar.jsonify({'detail': 'Invalid email and or password combination'}), 403
 
             # Check and verify verification_code
             for i, v in enumerate(get_user_data[1]['verification']):
@@ -184,6 +182,8 @@ class Auth:
                         auth_key = v['verification_code']['auth_key']
                         del get_user_data[1]['verification'][i]
 
+                        await app.two_step_judge(get_user_data[1], login[1]['detail']['auth_key'], 'save')
+
                         # Run a background task and return auth_key concurrently
                         create_task(manage.db.db_actions(auth_key, 'update_user', data=get_user_data[1]))
 
@@ -194,29 +194,29 @@ class Auth:
                         
                         html_content = html_content.replace('<!--app_reg-->', f'<script>document.cookie = "auth_key={auth_key}; expires=Thu, 01 Jan 00:00:00 UTC; path=/";</script>')
 
-                        response = await make_response(html_content)
+                        response = await scar.make_response(html_content)
                         return response
                     else:
                         auth_key = v['verification_code']['auth_key']
                         del get_user_data[1]['verification'][i]
 
                         create_task(manage.db.db_actions(auth_key, 'update_user', data=get_user_data[1]))
-                        return jsonify({
+                        return scar.jsonify({
                             'detail': 'Invalid and or expired verification_code'
                         }), 403
-            return jsonify({
+            return scar.jsonify({
                 'detail': 'Invalid and or expired verification_code'
             }), 403
         except Exception as e:
             create_task(logger.log_data(e))
-            return jsonify({'error': "Something went wrong"}), 500
+            return scar.jsonify({'error': "Something went wrong"}), 500
 
     # Determine if we should ask for 2-step verification or not
-    async def two_step_judge(app, identity, auth_key):
-        ip = request.headers.get("X-Forwarded-For") or request.headers.get("X-Real-Ip") or request.headers.get("Remote-Addr")
+    async def two_step_judge(app, identity, auth_key, save=None):
+        ip = scar.request.headers.get("X-Forwarded-For") or scar.request.headers.get("X-Real-Ip") or scar.request.headers.get("Remote-Addr")
 
         if not ip:
-            return jsonify({
+            return scar.jsonify({
                 'detail': 'We were unable to process your request due to missing or corrupted headers.'
             }), 403
 
@@ -232,50 +232,51 @@ class Auth:
                         
                         html_content = html_content.replace('<!--app_reg-->', f'<script>document.cookie = "auth_key={auth_key}; expires=Thu, 01 Jan 00:00:00 UTC; path=/";</script>')
 
-                        response = await make_response(html_content)
+                        response = await scar.make_response(html_content)
                         return response
         except Exception as e:
             create_task(logger.log_data(e))
-            return jsonify({'error': "Something went wrong"}), 500
+            return scar.jsonify({'error': "Something went wrong"}), 500
 
-        ip_info = {
-            'ip_info': {
-                'ip': await safe.tool([ip]),
-                'time': await safe.tool([str(dt.now())]),
-                'used_times': 1,
+        if save:
+            ip_info = {
+                'ip_info': {
+                    'ip': await safe.tool([ip]),
+                    'time': await safe.tool([str(dt.now())]),
+                    'used_times': 1,
+                }
             }
-        }
 
-        if not identity['user_data'].get('ip_history', None):
-            identity['user_data'].update({'ip_history': [ip_info]})
-        else:
-            identity['user_data']['ip_history'].append(ip_info)
+            if not identity['user_data'].get('ip_history', None):
+                identity['user_data'].update({'ip_history': [ip_info]})
+            else:
+                identity['user_data']['ip_history'].append(ip_info)
 
-        create_task(manage.db.db_actions(auth_key, 'update_user', data=identity))
+            create_task(manage.db.db_actions(auth_key, 'update_user', data=identity))
         return
 
     async def login(app, data, headers):
         app.data, app.headers, app.error = None, None, None
-        if not data or not headers: return jsonify({'detail': 'Prerequisites not met.'}), 400
+        if not data or not headers: return scar.jsonify({'detail': 'Prerequisites not met.'}), 400
         app.data, app.headers = data, headers
-        if not await app.forensicate(): return jsonify(app.error), 403
+        if not await app.forensicate(): return scar.jsonify(app.error), 403
 
         if data.get('verification_code', None):
             response = await app.two_step_verify()
             return response
 
         login = await manage.login(app.data['email'])
-        if not login[0]: return jsonify(login[1]), 403
+        if not login[0]: return scar.jsonify(login[1]), 403
 
         get_user_data = await manage.auth_session(login[1]['detail']['auth_key'])
 
-        if not get_user_data[0]: return jsonify(get_user_data[1]), 403
+        if not get_user_data[0]: return scar.jsonify(get_user_data[1]), 403
 
         if await safe.tool((get_user_data[1]['user_data']['email'],)) != app.data['email']:
-            return jsonify({'detail': 'Invalid email and or password combination'}), 403
+            return scar.jsonify({'detail': 'Invalid email and or password combination'}), 403
 
         elif await safe.tool((get_user_data[1]['user_data']['pwd'],)) != app.data['pwd']:
-            return jsonify({
+            return scar.jsonify({
                 'detail': 'Invalid email and or password combination'
             }), 403
 
@@ -283,7 +284,7 @@ class Auth:
         if res:
             return res
 
-        verify = await app.verify.two_step_verification(app.data['email'], app.data['email'], request.headers.get("X-Forwarded-For", None), request.headers.get("User-Agent", None))
+        verify = await app.verify.two_step_verification(app.data['email'], app.data['email'], scar.request.headers.get("X-Forwarded-For", None), scar.request.headers.get("User-Agent", None))
 
         if verify:
             verify_code = verify[0]
@@ -304,27 +305,27 @@ class Auth:
                 get_user_data[1]['verification'].append(verification_code)
 
             create_task(manage.db.db_actions(user_identifier=login[1]['detail']['auth_key'], do='update_user', data=get_user_data[1]))
-            return jsonify({
+            return scar.jsonify({
                 'detail': 'Click the link sent to your email to authenticate'
             }), 200
 
     async def register(app, data, headers):
         app.data, app.headers, app.error = None, None, None
-        if not data or not headers: return jsonify({'detail': 'Prerequisites not met.'}), 400
+        if not data or not headers: return scar.jsonify({'detail': 'Prerequisites not met.'}), 400
 
         app.data, app.headers = data, headers
         account_data = await app.creds_check()
 
         if app.error:
-            return jsonify(app.error), 403
+            return scar.jsonify(app.error), 403
 
         identifier = await safe.tool((account_data['email'],))
 
         res_data = await manage.register(identifier, user_data=account_data)
         if res_data[0]:
-            return jsonify({'detail': 'registration successful.'}), 200
+            return scar.jsonify({'detail': 'registration successful.'}), 200
         else:
-            return jsonify(res_data[1]), 403
+            return scar.jsonify(res_data[1]), 403
 
 # Authenticated sessions
 class Session:
@@ -334,11 +335,11 @@ class Session:
     async def access_user_data(app, data, headers):
         # reset set instance request data and headers
         app.auth.data, app.auth.headers, app.auth.error = None, None, None
-        if not data or not headers: return jsonify({'detail': 'Prerequisites not met.'}), 400
+        if not data or not headers: return scar.jsonify({'detail': 'Prerequisites not met.'}), 400
 
         app.auth.data, app.auth.headers = data, headers
         if not await app.auth.forensicate():
-            return jsonify(app.auth.error), 403
+            return scar.jsonify(app.auth.error), 403
 
         # get auth_key from the middleware since it sets it when it verifies it, then use it to get_user data
         get_user_data = await manage.db.db_actions(user_identifier=elements.middleware.auth_key, do=data.get('action', 'get_user'))
@@ -356,13 +357,13 @@ class Session:
                         if not isinstance(v2, (list, tuple, dict)):                    
                             user_data[k][k2] = await safe.tool((v2,))
 
-        return jsonify(user_data), 200
+        return scar.jsonify(user_data), 200
 
 session = Session()
 
 @app.route('/', methods=['GET'])
 async def index():
-    return redirect("/page/login")
+    return scar.redirect("/page/login")
 
 # Identity login auth
 @app.route('/auth/login', methods=['GET','POST'])
