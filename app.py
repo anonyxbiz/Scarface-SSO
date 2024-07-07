@@ -335,7 +335,6 @@ class Session:
     async def access_user_data(app, data, headers):
         # reset set instance request data and headers
         app.auth.data, app.auth.headers, app.auth.error = None, None, None
-        if not data or not headers: return scar.jsonify({'detail': 'Prerequisites not met.'}), 400
 
         app.auth.data, app.auth.headers = data, headers
         if not await app.auth.forensicate():
@@ -352,10 +351,23 @@ class Session:
             for k, v in user_data.items():
                 if not isinstance(v, (list, tuple, dict)):                    
                     user_data[k] = await safe.tool((v,))
+                    if not user_data[k]:
+                        user_data[k] = v
+
                 elif isinstance(v, (dict)):
                     for k2, v2 in v.items():
                         if not isinstance(v2, (list, tuple, dict)):                    
                             user_data[k][k2] = await safe.tool((v2,))
+                            if not user_data[k][k2]:
+                                user_data[k][k2] = v2
+                                
+                elif isinstance(v, (list)):
+                    for k2, v2 in v[0].items():
+                        if isinstance(v2, (dict)):
+                            for k3, v3 in v2.items():
+                                user_data[k][0][k2][k3] = await safe.tool((v3,))
+                                if not user_data[k][0][k2][k3]:
+                                    user_data[k][0][k2][k3] = v3
 
         return scar.jsonify(user_data), 200
 
